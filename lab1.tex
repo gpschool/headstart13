@@ -1,0 +1,368 @@
+\documentclass{article}
+
+\usepackage[top=4cm,left=4cm,right=4cm]{geometry}
+\usepackage[usenames]{color}
+\usepackage[sc]{mathpazo}
+\linespread{1.1}         
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{upquote}
+\usepackage{setspace}
+\usepackage{minted}
+\usepackage{listings}
+\usepackage{subcaption}
+\usepackage{dsfont}
+
+\linespread{1.1}         % Palatino needs more leading, space between lines
+\setlength\parindent{0pt}
+
+\definecolor{MyDarkBlue}{rgb}{0,0.08,0.45}
+\definecolor{bg}{rgb}{0.98,0.97,0.92}
+\usemintedstyle{trac}
+
+% inline code
+%\newcommand{\mintinline}[1]{\colorbox{bg}{\tt #1}}
+\newcommand{\mintinline}[1]{\colorbox{bg}{\lstinline[basicstyle=\ttfamily]{#1}}}
+
+\begin{document}
+
+\begin{center}
+\textcolor{MyDarkBlue}{
+{\LARGE Machine Learning}
+\vspace*{.5cm}
+{\large Head Start Summer School -- Sheffield, 16th of July 2013}
+}
+\end{center}
+\vspace*{1cm}
+
+\paragraph{}
+The aim of this lab session is to 
+
+\paragraph{}
+Since the background of the attendees is very diverse, 
+
+\section{Getting started: the covariance function}
+\paragraph{}
+We assume that Python 2.7 and GPy are already installed on your machine. If not, please follow the instructions from the welcome document. We first open \textit{ipython} and import the libraries we will need: \\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+import numpy as np
+import pylab as pb
+
+pylab
+pb.ion()                     # Open one thread per plot
+\end{minted}
+
+\paragraph{}
+The online documentation of GPy is available from the SheffieldML github page: https://github.com/SheffieldML/GPy.
+
+\paragraph{}
+Lets start with defining a squared-exponential kernel (ie rbf or Gaussian) in one dimension: \\ \ \\
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+d = 1                        # input dimension
+var = 1.                     # variance
+theta = 0.2                  # lengthscale
+
+k = GPy.kern.rbf(d,var,theta)
+\end{minted}
+This lab session and assignment will build automatic classifiers, building on your knoweldge of regression. By now you should all have a basic understanding of python, and the pylab packages numpy, scipy and matplotlib. Please refer to the previous assignment sheet details about running python, using the interactive ipython shell etc.
+
+You should store your answers to the questions in the assignment in a
+script file (e.g. assignmentTwo.py) which will be submitted at the
+assignment deadline. Any answer where you are required to write
+something down will be requested in the assessment. Your answers to
+this assignment will be given in the form of a Python script. This
+must be submitted by \textbf{Friday 14$^{th}$ December, 9am} via MOLE.
+This is the start of the final lab class, in which we will mark the
+submissions directly. For this reason you must attend the lab class
+and \textbf{late submissions will get zero}. We will
+try to run your script using
+\lstset{language=python,basicstyle=\ttfamily}
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+  %run assignmentTwo.py
+\end{minted}
+from the \lstinline+ipython+ interpreter.
+
+Make sure it answers each of the questions below!
+
+To start the script, you'll need to import some libraries. At the start of your script please import the following libraries:
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+  import scipy.io
+  import numpy as np
+  import matplotlib.pyplot as plt
+\end{minted}
+You should run your script using either \lstinline+ipython+ as described above, or \lstinline+python assignmentTwo.py+  from the command line.\footnote{Previously we recommended using \lstinline+ipython --pylab+ flag, which imports the above libraries automatically, however the namespaces can be different. If you found this puzzling, just use \lstinline+ipython+ and import the libraries by hand.}
+
+You need to complete the first part before starting the second (which will make up your assignment mark).
+
+\part{Lab class}
+
+\begin{enumerate}
+\item First, we'll create some artificial data for experimentation. (Later on we'll move to real data, but this brings added complexities.) Randomly draw 10 points each about $[1, 0]$ and $[0, 1]$,
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+    x = 0.5 * np.random.randn(40, 2)
+    x[0:20]  += np.array([1, 0])
+    x[20:40] += np.array([0, 1])
+    # set the target values -1 (=c1) and +1 (c2)
+    t = np.hstack([-np.ones(20), np.ones(20)])
+\end{minted}
+These points form our data instances for two classes $\mathcal{C}_1$ and $\mathcal{C}_2$, respectively, with \texttt{t} specifying the vector of class labels.
+Each row of the \texttt{x} matrix is a single instance, with two features.
+Recall that \texttt{randn} gives samples from a standard normal distribution, $\mathcal{N}(0, 1)$ -- see \texttt{np.random.rand?} for its help page.
+
+\item Now visualise the data. The best way is to call plot to draw the points in each class, 
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+  plt.plot(x[t==-1,0], x[t==-1,1], 'o')
+  plt.plot(x[t==1,0], x[t==1,1], 'o')
+\end{minted}
+Is the data \emph{linearly separable}?
+
+\item Next we will train a binary classifier on this data. For this we'll use the perceptron algorithm,
+which you should recall takes a model of the form
+\begin{align*}
+ y(\mathbf{x}) &= \mbox{sign}(w_0 + \mathbf{w}^T \mathbf{x}) \\
+ \mbox{sign}(v) &= \left\{ 
+\begin{array}{cc} 
+1, & \mbox{if $v > 0$} \\
+-1, &  \mbox{otherwise}
+\end{array} \right .
+\end{align*}
+Please refer to the lecture notes and the text book for a detailed exposition of the perceptron algorithm and linear classification models in general.
+
+\begin{enumerate}
+\item For simplicity, we will use the standard trick to incorporate the bias term $w_0$ into the weights $\mathbf{w}$ by using a basis function $\phi(x_1, x_2) = [1~x_1~x_2]^T$ which adds an extra constant dimension. The discriminant becomes
+\begin{equation} y(\mathbf{x}) = \mbox{sign}(\mathbf{w}^T \phi(\mathbf{x})) \label{eq:pred} \end{equation}
+To do this, simply concatenate a column of 1s to the data matrix
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+Phi = np.column_stack([np.ones(x.shape[0]), x])
+\end{minted}
+Note that \lstinline+Phi+ has shape $40 \times 3$ where each training instance is a row and each column is a feature. You may need to transpose Phi such that training instances are column vectors.
+
+\item Next, write the discriminant (prediction) function, $y$, in (\ref{eq:pred}). This takes as input a data point and the model parameters and outputs $1$ or $-1$. 
+
+\item Now for training algorithm which fits the weights, $\mathbf{w}$, to the training data. Write a function called \lstinline+train+ which takes the basis data matrix \lstinline+Phi+, the target vector \lstinline+t+ and a number of epochs (full iterations over the training set). This should implement the following pseudo-code
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+initialise weights to zero 
+repeat
+   for each x and t pair in the training set (in random order)  
+      get prediction, y, using the current model parameters 
+      if y and t differ
+         make weight update (see below) 
+until reached limit of iterations
+return weights
+\end{minted}
+The weight update is $\mathbf{w} \leftarrow \mathbf{w} + t \phi(\mathbf{x})$.
+What is the purpose of this update? 
+
+Note that you should randomise the order in which you visit the data, which you can do by shuffling the dataset before each epoch:
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+  data = np.column_stack([Phi, t])
+  np.random.shuffle(data)
+  Phi = data[:,:-1]
+  t = data[:,-1]
+\end{minted}
+
+\item After training the model, evaluate the accuracy of the model on the training data. Does this change with the number of epochs used in training? Note that evaluating on the training data is not a good idea general -- can you explain why? Instead, create a fresh \emph{test set} by randomly sampling some new points in the same way as before in step 1. What is the accuracy on the test data? 
+
+\item Inspect the weights learnt in training. Do these match your intuitions? Plot the decision boundary represented by the weights, $y(\mathbf{x}) = \mbox{sign}(\mathbf{w}^T \phi(\mathbf{x})) = 0$. Solving for $x_2$ as a function of $x_1$ yields $x_2 = -\frac{w_0}{w_2} - \frac{w_1}{w_2} x_1$. Nb. you can you \lstinline+linspace+ and \lstinline+plot+ for this purpose. 
+% Answer: x_2 = -w_0/w_2 - w_1/w_2 x_1
+%\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+%  p = linspace(-1, 2, 100)
+%  q = a + m * p
+%  plot(p, q)
+%\end{minted}
+%where you supply the values for $a$ and $m$.
+\end{enumerate}
+
+\item Linear decision boundaries can be quite limiting. Our next challenge is to adapt the model to non-linear decision surfaces using different \emph{basis functions}. Here we'll experiment with polynomial basis functions to replace the linear $\phi(\mathbf{x})$ with a higher-dimensional representation of the data.
+
+\begin{enumerate}  
+\item The quadratic basis function is defined as $\phi(x_1, x_2) = [1, x_1, x_2, x_1^2, x_2^2, x_1 x_2]^T$. Note that we don't only include the square of each component of $\mathbf{x}$, but also the product of the two components, $x_1 x_2$.  Create the data matrix implementing the quadratic basis function,
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+Phi = np.column_stack([np.ones(x.shape[0]), x, x**2, x[:,0] * x[:,1]])
+\end{minted}
+Now use this data in your training algorithm to learn the weights, and then evaluate the training and test accuracy. How does this compare to the linear model?
+% k(x, x') = (x . x' + 1) ^ 2
+%= (x1 x'1 + x2 x'2 + 1) ^ 2
+%= (x1 x'1)^2 + (x2 x'2)^2 + 1 + 2 x1 x'1 x2 x'2 + x1 x'1 + x2 x'2 
+% So in terms of BF we have
+% phi(x) = [1, x1, x2, x1^2, x2^2, sqrt(2) x1 x2]
+
+\item Plot the decision boundary. This isn't quite as simple as before, as we now have quadratic terms in $x_1$ and $x_2$. Instead, we can use \texttt{matplotlib}'s powerful contour plotting:
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+X1, X2 = np.meshgrid(np.arange(-2, 2, 0.025), np.arange(-2, 2, 0.025))
+grid = np.array([np.ones_like(X1), X1, X2, 
+                 X1 ** 2, X2 ** 2, X1 * X2])
+Y = np.dot(grid.transpose([1,2,0]), w)
+cs = plt.contour(X1, X2, Y)
+plt.clabel(cs, inline=1, fontsize=10)
+\end{minted}
+Note that we project each point in $(x_1, x_2)$ using $\phi$ in the second step, and the next step computes $\mathbf{w}^T \mathbf{x}$ on each item. Take a look at the help for \lstinline+plt.contour?+ and \lstinline+np.meshgrid+ to understand this code. You should also inspect the shapes of the arrays, e.g., \lstinline+X1.shape+, \lstinline+grid.shape+ etc, to understand the need for the odd transpose in the third step. Is the decision boundary straight or curved? Would you recommend using this basis function for modelling this data?
+
+% \item Radial basis functions. Now we'll try a more fancier type of basis functions, RBFs,
+%     \[
+%     \phi(\mathbf{x}) = \exp\left(-\frac{(\mathbf{x} - \mu)^2}{2s^2}\right)
+%     \]
+% We will use \texttt{numBasis} functions as individual features, each located with $\mu$ uniformly spaced on a grid. Define the grid as follows,
+%    \begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+%      steps = int(numBasis ** 0.5)
+%      mesh = np.meshgrid(np.linspace(0,1,steps), np.linspace(0,1,steps))      
+%      mu = vstack(map(ravel, mesh)).T
+%    \end{minted}
+% which will distribute the centres between $[0,1] \times [0,1]$.
+% Take a look at \texttt{mesh} and the \texttt{meshgrid?} help page
+% to understand how this works -- it constructs the cross-product 
+% between two vectors.Note that due to the rounding to integer values you should choose 
+% \texttt{numBasis} values which are powers of two.
+
+% You can construct the basis matrix using
+%     \begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+%       # Allocate the matrix for the basis set
+%       Phi = np.zeros((x.shape[0], numBasis))
+%       # Set the width of the basis functions
+%       width = 2*(x.max() - x.min())/numBasis
+%       # precompute the scale of the exponent
+%       scale = -1/(2*width*width)
+%       for i in range(0, numBasis):
+%           delta = x - mu[i]
+%           Phi[:, i] = np.exp(scale * diagonal(dot(delta, delta.T))) 
+%     \end{minted}
+% This should already be familiar to you, although the code is a little different from that used for univariate regression in the last assignment. This is because the inputs, $x$, have more than one dimension.
+
+% Now you can train a model and evaluate the training and testing accuracy (note that you'll need to represent the test data using $\phi$ against the same RBF centres $mu$). Is it better or worse that the linear and quadratic models? Try with different values of \texttt{numBasis}, say 16, 64 and 256. 
+
+% Plot the decision surface, as follows
+% \begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+% # create the cross-product of 50*50 evenly spaced points in x1 and x2 
+% X1, X2 = np.meshgrid(np.linspace(-1,2,50), np.linspace(-1,2,50))
+% # reshape from two 50*50 matrices into a single 2500*2 element matrix
+% X12 = vstack((X1.ravel(), X2.ravel())).T
+% # allocate the matrix for the basis vectors
+% PhiGrid = np.zeros((X12.shape[0], numBasis))
+% # assign each column based on the distance to its mean value
+% for i in range(0, numBasis):
+%    delta = X12 - mu[i]
+%    PhiGrid[:,i] = np.exp(scale * diagonal(dot(delta, delta.T)))
+% # now evaluate the model at each data point
+% Y = dot(PhiGrid, w)
+% # now plot the contours
+% cs = plt.contour(X1, X2, Y)
+% plt.clabel(cs, inline=1, fontsize=10)
+% \end{minted}
+% What effect does the number of basis functions have on the decision boundary?
+
+\item Finally, let's apply your models to some more challenging data. The two classes
+will now be drawn from gaussians about two centres, as follows:
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+    x = 0.3 * np.random.randn(40, 2)
+    # class 1
+    x[0:10]  += np.array([1, 0])
+    x[10:20] += np.array([0, 1])
+    # class 2
+    x[20:30] += np.array([0, 0]) # does nothing
+    x[30:40] += np.array([1, 1])
+    t = np.hstack([-np.ones(20), np.ones(20)])
+\end{minted}
+Plot these points to understand why this might be a difficult problem. Next apply the models
+with linear and quadratic basis functions. Which model works better on this data? 
+\end{enumerate}
+\end{enumerate}
+
+\part{Assignment}
+
+
+Digit recognition can be framed as a classification task: given a bitmap image as input, predict the digit type (0, 1, ..., 9). The pixel values in each position of the image form our features, and the digit type is the class. We'll be using the MNIST data set, in which digits are represented as 28x28 bitmap images. Each pixel value ranges between 0 and 1, and represents the monochrome ink intensity at that position. Each image matrix has been flattened into one long feature vector, by concatenating each row of pixels.
+
+All assignment answers should be provided by your submitted code.
+
+The first step is to get the data. Please download the file 
+\url{http://staffwww.dcs.shef.ac.uk/people/T.Cohn/mnist.pkl.gz}
+and put it in your working directory, e.g., \texttt{c:\textbackslash{}users\textbackslash{}your\_username}. This file is in a python binary format which can be loaded easily using the pickle module.
+
+Now launch \lstinline+ipython --pylab+ in the same directory, and type the following to load the data:
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+  import gzip 
+  import cPickle 
+  f = gzip.open('mnist.pkl.gz','rb') 
+  train_set, valid_set, test_set = cPickle.load(f) 
+  f.close()
+\end{minted}
+Note that it’s already been split into training, validation (aka development) and testing sets for you. You should inspect these variables using the \lstinline+print+ and \lstinline+shape+ methods to understand the data format and size. There are 50,000 training instances and each training instance has 784 features (28 x 28 pixels flattened into a row). The target class labels are in a separate vector which stores the digit number 0--9.
+
+It may help to visualise the data. We can take the first 5 training examples and reshape them to be 28 pixels wide:
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+  imshow(train_set[0][:5].reshape(-1, 28)) 
+  gray()
+\end{minted}
+Note the -1 means python figures out the required height (here 5*28). Note that you can use other colour schemes using \lstinline+jet+ or \lstinline+hot+. 
+
+\section{Tasks}
+\begin{enumerate}
+\item \textbf{Training the Perceptron} Your task is to take your perceptron classifier and apply it to the digits dataset to distinguish between 3s and 5s. You should start with the linear basis function (including the bias term). \emph{Hint:} To extract the training data the perceptron, we need to filter out just the 3s and 5s from our training set
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+   x_all, t_all = train_set
+   x = x_all[logical_or(t_all==3, t_all==5)]
+   t = t_all[logical_or(t_all==3, t_all==5)]
+\end{minted}
+You will want to convert the labels in \lstinline+t+ to be -1 and 1 for the two types of digit. Note that you can reuse the code that you developed in the lab session for the assignment.
+
+\begin{enumerate}
+\item Implement the discriminant function $y(x)$, using a linear basis function. You should include a bias term. \hfill [5 marks]
+\item Develop the perceptron training algorithm to work with the digit data (see above for outline). For this question you should use a linear basis function.\hfill [20 marks]
+\item Parameter interpretation: display the results of the perceptron algorithm in terms of the model parameters, $w$. Try this 
+\begin{minted}[bgcolor=bg,fontfamily=tt]{python}
+
+  imshow(w.reshape(28,28))
+\end{minted}
+and use the print statement to write a description of what you see, highlighting in particular which weights are negative and which are positive. 
+Repeat this for a few points in the training processing (e.g., after visiting every 100 training instances) and describe how the weights change over
+the course of training with a print statement. \hfill [10 marks]
+\end{enumerate}
+
+\item \textbf{Evaluation of the classifier.}
+We start by working on the validation set. Once we're happy with that we can then use the test set. N.b., you will need to filter the validation and test sets to extract the 3 and 5 digits, as done above for the training set.
+\begin{enumerate}
+\item Implement a function to evaluate the predictions of the classifier, returning the error rate. \\ \mbox{} \hfill [5 marks]
+\item Perform a training run where you record the training error and the validation error regularly during the training process (e.g., after visiting every 100 training instances). Plot both error curves. Use a print statement to explain the shape of the two curves. \hfill [10 marks]
+%\item Now perform training runs with smaller subsets of the training data, e.g., $N=\{10,20,40,80,\ldots\}$ training points, recording the validation error of a classifier trained on each dataset. Plot the error curve. Use a print statement to explain the performance profile, and what error rate you would expect given millions of training instances. \hfill [10 marks]
+\item Now choose a classifier from your training run to work with the test data, and evaluate its test error. Explain your choice with the print statement. \hfill [10 marks]
+\item Display the confusion matrix for your model, and display 3 incorrectly classified images from each class. \hfill [10 marks]
+\end{enumerate}
+
+\item \textbf{Basis functions} 
+Now we will try using some more advanced basis functions, to see whether we can improve over the linear classifier. For the purpose of this part you may to work with a smaller training set (e.g., the first 1000 items), as the computations tend to be slow for the full dataset.
+\begin{enumerate}
+\item Implement radial basis functions, defined as $\phi_i(\mathbf{x}) = \exp\left( - \frac{ || \mathbf{x} - \mu_i ||^2 }{s} \right)$, where $\mu_i$ is the center of the $i^{th}$ basis function and $s$ is the width scale. Each $\phi_i$ forms a dimension of the basis matrix. \hfill [10 marks]
+\item Train a number of RBF models with different numbers of basis functions (e.g., 5, 10, 20, 50, 100) and a few different values for the width parameter $s$. Note that you'll need a way of selecting the centres for the RBFs -- you might want to try using some training instances. \hfill [10 marks]
+\item Compare the error for the RBF basis function models under the different settings above, and then choose a model and explain your choice. Now report its test error. How does this compare to the linear model above, and what can you conclude about this task? \hfill [10 marks]
+%\item Inspect the learned weights to see which basis functions were the most important and display the images for the top 6 entries. Explain in a print statement why these have been chosen by the model. \hfill [10 marks]
+%\item Kernel perceptron
+%\item Kernels -- linear, RBF, polynomial. Compare to basis function versions in terms of accuracies. How important is the order of the polynomial / width of the RBF? Feel free to try out some ideas of your own to build a tailored kernel for this problem, e.g., by looking at small patches of the image and comparing average intensities.
+\end{enumerate}
+
+\item That's it, but you should feel free to extend the model further. For example, you could develop a \emph{kernel perceptron} using RBF and polynomial kernels, which is the logical extension of basis functions. Another option is to develop a multiclass model to predict all of the digits.
+
+\end{enumerate}
+
+%Experiment with basis functions.
+%Kernel perceptron, various kernels. Challenge -- to come up with something fun for modelling images, e.g., making use of patch intensities etc.
+%Extension -- choose one of multiclass perceptron (0, 1, ..., 9) -- compare to 1-vs-rest; LR; NB.
+%Some part of the mark comes down to predictive accuracy on a hidden held-out set?
+
+\end{document}
