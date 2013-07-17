@@ -1,0 +1,164 @@
+\documentclass{article}
+
+\usepackage[top=4cm,left=4cm,right=4cm]{geometry}
+\usepackage[usenames]{color}
+\usepackage[sc]{mathpazo}
+\linespread{1.1}         
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{upquote}
+\usepackage{setspace}
+\usepackage{minted}
+\usepackage{listings}
+\usepackage{subcaption}
+\usepackage{dsfont}
+
+\linespread{1.1}         % Palatino needs more leading, space between lines
+\setlength\parindent{0pt}
+
+\definecolor{MyDarkBlue}{rgb}{0,0.08,0.45}
+\definecolor{bg}{rgb}{0.98,0.97,0.92}
+\usemintedstyle{trac}
+
+% inline code
+%\newcommand{\mintinline}[1]{\colorbox{bg}{\tt #1}}
+\newcommand{\mintinline}[1]{\colorbox{bg}{\lstinline[basicstyle=\ttfamily]{#1}}}
+
+
+\begin{document}
+
+\begin{center}
+\textcolor{MyDarkBlue}{
+{\LARGE The perceptron algorithm for classifying digit pictures\\}
+\vspace*{.5cm}
+{\large Headstart Summer School -- Sheffield, 16th of July 2013}
+}
+\end{center}
+\vspace*{1cm}
+
+
+In this lab session we will build automatic classifiers that will recognise pictures of digits. Digit recognition can be framed as a classification task: given a bitmap image as input, predict the digit type (0, 1, ..., 9). The pixel values in each position of the image form our features, and the digit type is the class. We'll be using the MNIST data set, in which digits are represented as 28x28 bitmap images. Each pixel value ranges between 0 and 1, and represents the monochrome ink intensity at that position. Each image has been flattened into one long feature vector, by concatenating each row of pixels. 
+
+The first step is to launch the python interpreter Canopy, to import some libraries and to load the data. The latter is saved in a python binary format which can be loaded easily using the pickle module:\\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+  # import libraries
+  import scipy.io
+  import numpy as np
+  import matplotlib.pyplot as plt
+  import gzip 
+  import cPickle 
+
+  # load the data
+  f = gzip.open('mnist.pkl.gz','rb') 
+  train_set, valid_set, test_set = cPickle.load(f) 
+  f.close()
+
+\end{minted}
+
+Note that it's already been split into training, validation (aka development) and testing sets for you. You should inspect these variables using the \mintinline{print} and \mintinline{shape} methods to understand the data format and size. There are 50,000 training instances and each training instance has 784 features (28 x 28 pixels flattened into a row). The target class labels are in a separate vector which stores the digit number 0--9.
+
+It may help to visualise the data. We can take the first training examples and reshape them to be 28$\times$28 pixels wide:\\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+  gray() # use black and white plotting
+  plt.figure()
+  imshow(train_set[0][0,:].reshape(28, 28))
+  plt.figure()
+  imshow(train_set[0][1,:].reshape(28, 28))
+  plt.figure()
+  imshow(train_set[0][2,:].reshape(28, 28))
+\end{minted}
+
+Similarly, you can look at the class of these images:\\ \ 
+\begin{minted}[bgcolor=bg]{python}
+  print train_set[1][0], train_set[1][1], train_set[1][2]
+\end{minted}
+
+\section{Distinguishing 3s and 5s}
+We will now focus on distinguishing the digits 3 and 5. The first step for this is to extract these digits from the dataset:\\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+  x_all, t_all = train_set
+  x = x_all[np.logical_or(t_all==3, t_all==5)]
+  t = t_all[np.logical_or(t_all==3, t_all==5)]
+\end{minted}
+
+Furthermore, we convert the labels 3 and 5 into -1 and 1:\\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+  t[t==3] = -1
+  t[t==5] = 1
+\end{minted}
+
+Using the previous code, plot the first elements of \mintinline{x} to make sure the 3 and 5 have indeed been selected.
+
+\subsection{The perceptron algorithm}
+As it has been seen during the lecture, the perceptron algorithm can be described as follow:
+\begin{lstlisting}
+initialise weights to zero 
+repeat
+   for each x and t pair in the training set (in random order)  
+      get prediction, y, using the current model parameters 
+      if y and t differ
+         make weight update (see below) 
+until reached limit of iterations
+return weights
+\end{lstlisting}
+where the weight update is $\mathbf{w} \leftarrow \mathbf{w} + \mathbf{x}_i \times t_i$.
+
+This can be traduced into python as a function\\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+def train(x, t, epochs):
+    n, d = x.shape
+    w = np.zeros(d)
+    w0 = 0.
+    for epoch in range(epochs):
+        data = np.column_stack([x, t])
+        np.random.shuffle(data)
+        xe = data[:,:-1]
+        te = data[:,-1]
+        for i in range(n):
+            yi = sign(np.dot(xe[i], w)+w0)
+            if yi != te[i]:
+                w += te[i] * xe[i]
+                w0 += te[i] 
+    return w,w0
+
+\end{minted}
+
+Can you understand this function?
+
+We can now apply this function to our dataset and represent the obtain vector $\mathbf{w}$:\\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+  w,w0 = train(x, t,200)
+  plt.imshow(w.reshape(28, 28))
+\end{minted}
+
+\subsection{Testing the model}
+We can now use the model to predict the class of new images. As previously, we load some new images \\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+x_new, t_new = test_set
+x_test = x_new[logical_or(t_new==3, t_new==5)]
+t_test = t_new[logical_or(t_new==3, t_new==5)]
+t_test[t_test==3] = -1
+t_test[t_test==5] = 1
+\end{minted}
+
+We will use the following function to predict the class using the data and weights:\\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+def predict(x, w,w0):
+    return sign(np.dot(x, w)+w0)
+\end{minted}
+
+The prediction of the model is then given by:\\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+pred_test = predict(x_test, w,w0)
+\end{minted}
+
+\subsection{Assessing the accuracy of the model}
+We now compare the predictions of the model \mintinline{pred_test} with the actual values of the labels \mintinline{t_test}. The index of the images where the predictions are correct or wrong are given by: \\ \ \\
+\begin{minted}[bgcolor=bg]{python}
+ind_correct = np.where(t_test == pred_test)[0]
+ind_error1 = np.where(logical_and(t_test == 1 , pred_test == -1))[0]
+ind_error2 = logical_and(t_test == -1 , pred_test == 1)
+\end{minted}
+
+Can you compute the percentage of images that are correctly classified? Can you plot some of the images that are incorrectly classified?
+\end{document}
